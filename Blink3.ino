@@ -25,4 +25,5 @@ void loop() {
   delay(1000);
   digitalWrite(LED3, LOW);
 }
-// Tyler Stoops
+
+// Tyler Woodard
