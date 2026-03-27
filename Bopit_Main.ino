@@ -1,11 +1,4 @@
-#include <Adafruit_ISM330DHCX.h>
-#include <Adafruit_LSM6DS.h>
-#include <Adafruit_LSM6DS3.h>
-#include <Adafruit_LSM6DS33.h>
 #include <Adafruit_LSM6DS3TRC.h>
-#include <Adafruit_LSM6DSL.h>
-#include <Adafruit_LSM6DSO32.h>
-#include <Adafruit_LSM6DSOX.h>
 
 #include <Wire.h>
 
