@@ -2,10 +2,10 @@
 #include <Wire.h>
 #include <U8g2lib.h>
 
-// Pins
-constexpr uint8_t LED = 0x08;
+// Set Pins (Add pins for score and sound board)
+//constexpr uint8_t PIN_NAME = 0x00;
 
-// IMU addresses
+// IMU addresses (CS needs to be tied to VCC on IMU 2)
 constexpr uint8_t IMU_1_ADDR = 0x6A;
 constexpr uint8_t IMU_2_ADDR = 0x6B;
 
@@ -16,7 +16,7 @@ Adafruit_LSM6DS3TRC imu2;
 // Display
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
-// Thresholds
+// Thresholds (Needs to be tuned)
 constexpr int SHAKE_T = 250;
 constexpr int TILT_T  = 100;
 constexpr int TWIST_T = 70;
@@ -50,7 +50,11 @@ static unsigned long lastDetect2 = 0;
 // Helper
 static inline int absScaled(float v)
 {
-  return (v < 0) ? (int)(-v * 10) : (int)(v * 10);
+  if (v < 0) {
+    return (int)(-v * 10);
+  } else {
+    return (int)(v * 10);
+  }
 }
 
 // Gesture detection
@@ -119,7 +123,8 @@ static void render()
 void setup()
 {
   Wire.begin();
-  pinMode(LED, OUTPUT);
+  //pinMode(LED, OUTPUT);
+  // SET PINMODES HERE
 
   imu1.begin_I2C(IMU_1_ADDR);
   imu2.begin_I2C(IMU_2_ADDR);
@@ -145,6 +150,7 @@ void loop()
   switch (state)
   {
     case WAITING:
+      // Start Round after random wait is over
       if (now - roundStartTime >= waitDuration) {
         currentCommand = commands[random(NUM_COMMANDS)];
         state = ACTIVE;
@@ -152,6 +158,7 @@ void loop()
       break;
 
     case ACTIVE:
+      // Comp p1 and p2 command to current command
       if (g1 && strcmp(g1, currentCommand) == 0) {
         score1++;
         state = WAITING;
@@ -161,6 +168,7 @@ void loop()
         state = WAITING;
       }
 
+      // End game condition
       if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) {
         state = GAME_OVER;
       }
