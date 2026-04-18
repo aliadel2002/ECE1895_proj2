@@ -18,28 +18,39 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
 // Thresholds
 constexpr int SHAKE_T = 250;
-constexpr int TILT_T  = 70;
-constexpr int TWIST_T = 25;
+constexpr int TILT_T  = 100;
+constexpr int TWIST_T = 70;
 constexpr int PUNCH_T = 200;
 
 constexpr unsigned long COOLDOWN_MS = 600;
+
+// Game
+constexpr int WIN_SCORE = 10;
+const char* commands[] = {"PUNCH", "SHAKE", "TWIST", "TILT"};
+constexpr int NUM_COMMANDS = 4;
+
+int score1 = 0;
+int score2 = 0;
+const char* currentCommand = nullptr;
+
+enum GameState { WAITING, ACTIVE, GAME_OVER };
+GameState state = WAITING;
+
+unsigned long roundStartTime = 0;
+unsigned long waitDuration = 0;
 
 // Sensor data
 static sensors_event_t accel1, gyro1, temp1;
 static sensors_event_t accel2, gyro2, temp2;
 
-// Timing state
+// Timing
 static unsigned long lastDetect1 = 0;
 static unsigned long lastDetect2 = 0;
 
 // Helper
 static inline int absScaled(float v)
 {
-  if (v < 0) {
-      return (int)(-v * 10);
-  } else {
-      return (int)(v * 10);
-  }
+  return (v < 0) ? (int)(-v * 10) : (int)(v * 10);
 }
 
 // Gesture detection
@@ -49,8 +60,7 @@ static const char* detectGesture(
   unsigned long& lastDetect,
   unsigned long now)
 {
-  if (now - lastDetect < COOLDOWN_MS)
-    return nullptr;
+  if (now - lastDetect < COOLDOWN_MS) return nullptr;
 
   int ax = absScaled(accel.acceleration.x);
   int ay = absScaled(accel.acceleration.y);
@@ -61,11 +71,7 @@ static const char* detectGesture(
   int gz = absScaled(gyro.gyro.z);
 
   int shake = ax + ay + az;
-
-  int punch = ax;
-  if (ay > punch) punch = ay;
-  if (az > punch) punch = az;
-
+  int punch = max(ax, max(ay, az));
   int tilt = ax + ay;
   int twist = gx + gy + gz;
 
@@ -76,29 +82,34 @@ static const char* detectGesture(
   else if (twist > TWIST_T) gesture = "TWIST";
   else if (tilt > TILT_T) gesture = "TILT";
 
-  if (gesture)
-    lastDetect = now;
+  if (gesture) lastDetect = now;
 
   return gesture;
 }
 
-// Display rendering
-static void render(const char* gesture1, const char* gesture2)
+// Display
+static void render()
 {
   display.firstPage();
   do {
     display.setFont(u8g2_font_ncenB08_tr);
 
-    display.drawStr(0, 12, "BOPIT");
+    display.drawStr(0, 10, "BOPIT");
 
-    if (gesture1) {
-      display.drawStr(0, 32, "P1:");
-      display.drawStr(30, 32, gesture1);
+    char buf[32];
+
+    sprintf(buf, "P1:%d  P2:%d", score1, score2);
+    display.drawStr(0, 25, buf);
+
+    if (state == ACTIVE && currentCommand) {
+      display.drawStr(0, 45, currentCommand);
     }
 
-    if (gesture2) {
-      display.drawStr(0, 52, "P2:");
-      display.drawStr(30, 52, gesture2);
+    if (state == GAME_OVER) {
+      if (score1 >= WIN_SCORE)
+        display.drawStr(0, 60, "P1 WINS");
+      else
+        display.drawStr(0, 60, "P2 WINS");
     }
 
   } while (display.nextPage());
@@ -108,36 +119,63 @@ static void render(const char* gesture1, const char* gesture2)
 void setup()
 {
   Wire.begin();
-
   pinMode(LED, OUTPUT);
 
   imu1.begin_I2C(IMU_1_ADDR);
   imu2.begin_I2C(IMU_2_ADDR);
 
   display.begin();
+  randomSeed(analogRead(0));
 
-  render("READY", "READY");
+  waitDuration = random(3000, 5000);
+  roundStartTime = millis();
 }
 
-// Main loop
+// Loop
 void loop()
 {
-  digitalWrite(LED, LOW);
+  unsigned long now = millis();
+
   imu1.getEvent(&accel1, &gyro1, &temp1);
   imu2.getEvent(&accel2, &gyro2, &temp2);
 
-  unsigned long now = millis();
+  const char* g1 = detectGesture(accel1, gyro1, lastDetect1, now);
+  const char* g2 = detectGesture(accel2, gyro2, lastDetect2, now);
 
-  const char* gesture1 = detectGesture(accel1, gyro1, lastDetect1, now);
-  const char* gesture2 = detectGesture(accel2, gyro2, lastDetect2, now);
+  switch (state)
+  {
+    case WAITING:
+      if (now - roundStartTime >= waitDuration) {
+        currentCommand = commands[random(NUM_COMMANDS)];
+        state = ACTIVE;
+      }
+      break;
 
-  render(gesture1, gesture2);
+    case ACTIVE:
+      if (g1 && strcmp(g1, currentCommand) == 0) {
+        score1++;
+        state = WAITING;
+      }
+      else if (g2 && strcmp(g2, currentCommand) == 0) {
+        score2++;
+        state = WAITING;
+      }
 
-  if (gesture1 || gesture2) {
-    digitalWrite(LED, HIGH);
-    delay(1000);
-  } else {
-    delay(20);
+      if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) {
+        state = GAME_OVER;
+      }
+
+      if (state == WAITING) {
+        waitDuration = random(3000, 5000);
+        roundStartTime = now;
+        delay(500);
+      }
+      break;
+
+    case GAME_OVER:
+      break;
   }
 
+  render();
+  delay(20);
 }
