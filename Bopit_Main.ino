@@ -5,7 +5,7 @@
 // Set Pins (Add pins for score and sound board)
 //constexpr uint8_t PIN_NAME = 0x00;
 
-// IMU addresses (CS needs to be tied to VCC on IMU 2)
+// IMU addresses
 constexpr uint8_t IMU_1_ADDR = 0x6A;
 constexpr uint8_t IMU_2_ADDR = 0x6B;
 
@@ -16,13 +16,13 @@ Adafruit_LSM6DS3TRC imu2;
 // Display
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
-// Thresholds (Needs to be tuned)
-constexpr int SHAKE_T = 250;
-constexpr int TILT_T  = 100;
-constexpr int TWIST_T = 70;
-constexpr int PUNCH_T = 200;
+// Thresholds
+constexpr float TILT_Z_THRESHOLD   = -5.0f;
+constexpr float TWIST_GZ_THRESHOLD =  1.5f;
+constexpr float PUNCH_AX_THRESHOLD =  2.0f;
+constexpr float SHAKE_AZ_THRESHOLD =  1.25f;
 
-constexpr unsigned long COOLDOWN_MS = 600;
+constexpr unsigned long COOLDOWN_MS = 400;
 
 // Game
 constexpr int WIN_SCORE = 10;
@@ -33,31 +33,41 @@ int score1 = 0;
 int score2 = 0;
 const char* currentCommand = nullptr;
 
+// all the game states
 enum GameState { WAITING, ACTIVE, GAME_OVER };
 GameState state = WAITING;
 
 unsigned long roundStartTime = 0;
-unsigned long waitDuration = 0;
+unsigned long waitDuration   = 0;
 
-// Sensor data
 static sensors_event_t accel1, gyro1, temp1;
 static sensors_event_t accel2, gyro2, temp2;
 
-// Timing
 static unsigned long lastDetect1 = 0;
 static unsigned long lastDetect2 = 0;
 
-// Helper
-static inline int absScaled(float v)
+// Shuffled bag (for better "random")
+static const char* bag[NUM_COMMANDS];
+static int bagIndex = 0;
+
+static void refillBag()
 {
-  if (v < 0) {
-    return (int)(-v * 10);
-  } else {
-    return (int)(v * 10);
+  for (int i = 0; i < NUM_COMMANDS; i++) bag[i] = commands[i];
+  for (int i = NUM_COMMANDS - 1; i > 0; i--) {
+    int j = random(i + 1);
+    const char* tmp = bag[i];
+    bag[i] = bag[j];
+    bag[j] = tmp;
   }
+  bagIndex = 0;
 }
 
-// Gesture detection
+static const char* nextCommand()
+{
+  if (bagIndex >= NUM_COMMANDS) refillBag();
+  return bag[bagIndex++];
+}
+
 static const char* detectGesture(
   sensors_event_t& accel,
   sensors_event_t& gyro,
@@ -66,42 +76,47 @@ static const char* detectGesture(
 {
   if (now - lastDetect < COOLDOWN_MS) return nullptr;
 
-  int ax = absScaled(accel.acceleration.x);
-  int ay = absScaled(accel.acceleration.y);
-  int az = absScaled(accel.acceleration.z);
+  float ax = accel.acceleration.x;
+  float ay = accel.acceleration.y;
+  float az = accel.acceleration.z;
+  float gz = gyro.gyro.z;
 
-  int gx = absScaled(gyro.gyro.x);
-  int gy = absScaled(gyro.gyro.y);
-  int gz = absScaled(gyro.gyro.z);
+  // TILT: flip upside down — az goes negative
+  if (az < TILT_Z_THRESHOLD) {
+    lastDetect = now;
+    return "TILT";
+  }
 
-  int shake = ax + ay + az;
-  int punch = max(ax, max(ay, az));
-  int tilt = ax + ay;
-  int twist = gx + gy + gz;
+  // TWIST: gz dominant
+  if (fabsf(gz) > TWIST_GZ_THRESHOLD) {
+    lastDetect = now;
+    return "TWIST";
+  }
 
-  const char* gesture = nullptr;
+  // PUNCH: spike on X axis
+  if (fabsf(ax) > PUNCH_AX_THRESHOLD) {
+    lastDetect = now;
+    return "PUNCH";
+  }
 
-  if (punch > PUNCH_T) gesture = "PUNCH";
-  else if (shake > SHAKE_T) gesture = "SHAKE";
-  else if (twist > TWIST_T) gesture = "TWIST";
-  else if (tilt > TILT_T) gesture = "TILT";
+  // SHAKE: spike on Z axis above gravity baseline
+  float azDeviation = fabsf(fabsf(az) - 9.8f);
+  if (azDeviation > SHAKE_AZ_THRESHOLD) {
+    lastDetect = now;
+    return "SHAKE";
+  }
 
-  if (gesture) lastDetect = now;
-
-  return gesture;
+  return nullptr;
 }
 
-// Display
-static void render()
+static void renderGame()
 {
   display.firstPage();
   do {
     display.setFont(u8g2_font_ncenB08_tr);
-
     display.drawStr(0, 10, "BOPIT");
 
     char buf[32];
-
     sprintf(buf, "P1:%d  P2:%d", score1, score2);
     display.drawStr(0, 25, buf);
 
@@ -110,33 +125,26 @@ static void render()
     }
 
     if (state == GAME_OVER) {
-      if (score1 >= WIN_SCORE)
-        display.drawStr(0, 60, "P1 WINS");
-      else
-        display.drawStr(0, 60, "P2 WINS");
+      display.drawStr(0, 60, score1 >= WIN_SCORE ? "P1 WINS" : "P2 WINS");
     }
 
   } while (display.nextPage());
 }
 
-// Setup
 void setup()
 {
   Wire.begin();
-  //pinMode(LED, OUTPUT);
-  // SET PINMODES HERE
-
   imu1.begin_I2C(IMU_1_ADDR);
   imu2.begin_I2C(IMU_2_ADDR);
 
   display.begin();
   randomSeed(analogRead(0));
 
+  refillBag();
   waitDuration = random(3000, 5000);
   roundStartTime = millis();
 }
 
-// Loop
 void loop()
 {
   unsigned long now = millis();
@@ -150,15 +158,13 @@ void loop()
   switch (state)
   {
     case WAITING:
-      // Start Round after random wait is over
       if (now - roundStartTime >= waitDuration) {
-        currentCommand = commands[random(NUM_COMMANDS)];
+        currentCommand = nextCommand();
         state = ACTIVE;
       }
       break;
 
     case ACTIVE:
-      // Comp p1 and p2 command to current command
       if (g1 && strcmp(g1, currentCommand) == 0) {
         score1++;
         state = WAITING;
@@ -168,13 +174,12 @@ void loop()
         state = WAITING;
       }
 
-      // End game condition
       if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) {
         state = GAME_OVER;
       }
 
       if (state == WAITING) {
-        waitDuration = random(3000, 5000);
+        waitDuration   = random(3000, 5000);
         roundStartTime = now;
         delay(500);
       }
@@ -184,6 +189,6 @@ void loop()
       break;
   }
 
-  render();
+  renderGame();
   delay(20);
 }
