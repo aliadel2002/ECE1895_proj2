@@ -82,29 +82,29 @@ static const char* detectGesture(
   float az = accel.acceleration.z;
   float gz = gyro.gyro.z;
 
-  // TILT: flip upside down — az goes negative
+// HEADER: flip upside down — az goes negative
   if (az < TILT_Z_THRESHOLD) {
     lastDetect = now;
-    return "TILT";
+    return "HEADER";
   }
 
-  // TWIST: gz dominant
+  // SPIN: gz dominant
   if (fabsf(gz) > TWIST_GZ_THRESHOLD) {
     lastDetect = now;
-    return "TWIST";
+    return "SPIN";
   }
 
-  // PUNCH: spike on X axis
+  // THROW: spike on X axis
   if (fabsf(ax) > PUNCH_AX_THRESHOLD) {
     lastDetect = now;
-    return "PUNCH";
+    return "THROW";
   }
 
-  // SHAKE: spike on Z axis above gravity baseline
+  // DRIBBLE: spike on Z axis above gravity baseline
   float azDeviation = fabsf(fabsf(az) - 9.8f);
   if (azDeviation > SHAKE_AZ_THRESHOLD) {
     lastDetect = now;
-    return "SHAKE";
+    return "DRIBBLE";
   }
 
   return nullptr;
