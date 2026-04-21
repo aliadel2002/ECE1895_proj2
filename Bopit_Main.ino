@@ -26,7 +26,8 @@ constexpr unsigned long COOLDOWN_MS = 400;
 
 // Game
 constexpr int WIN_SCORE = 10;
-const char* commands[] = {"PUNCH", "SHAKE", "TWIST", "TILT"};
+const char* commands[] = {"THROW", "DRIBBLE", "SPIN", "HEADER"};
+//const char* commands[] = {"PUNCH", "SHAKE", "TWIST", "TILT"};
 constexpr int NUM_COMMANDS = 4;
 
 int score1 = 0;
