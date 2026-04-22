@@ -3,9 +3,9 @@
 
 #include <Arduino.h>
 
-const int dataPin = 11;  // SER(14)
-const int latchPin = 12; // RCLK(12)
-const int clockPin = 13; // SRCLK(11)
+const int dataPin = 6;  // SER(14)
+const int latchPin = 7; // RCLK(12)
+const int clockPin = 8; // SRCLK(11)
 
 // Lookup table for Common Cathode (Active HIGH)
 const byte digitMap[] = {
