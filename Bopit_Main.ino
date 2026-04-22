@@ -1,5 +1,7 @@
 #include <Adafruit_LSM6DS3TRC.h>
 #include <Wire.h>
+#include <audio_engine.h>
+#include <display_shift.h>
 #include <U8g2lib.h>
 
 // Set Pins (Add pins for score and sound board)
@@ -144,6 +146,9 @@ void setup()
   refillBag();
   waitDuration = random(3000, 5000);
   roundStartTime = millis();
+
+  initAudio();
+  initDisplay();
 }
 
 void loop()
@@ -165,6 +170,7 @@ void loop()
         // =========================
         // PLAY SOUND
         // =========================
+        playNote(2*C4,4,PHASOR)
       }
       break;
 
@@ -174,10 +180,12 @@ void loop()
     case ACTIVE:
       if (g1 && strcmp(g1, currentCommand) == 0) {
         score1++;
+        displayNumbers(score1,score2);
         state = WAITING;
       }
       else if (g2 && strcmp(g2, currentCommand) == 0) {
         score2++;
+        displayNumbers(score1,score2);
         state = WAITING;
       }
 
