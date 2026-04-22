@@ -201,6 +201,11 @@ void loop()
       break;
 
     case GAME_OVER:
+      play_note(2*E4,3,WHISTLE);
+      delay(10);
+      play_note(2*E4,3,WHISTLE);
+      delay(10);
+      play_note(2*E4,4,WHISTLE);
       break;
   }
 
