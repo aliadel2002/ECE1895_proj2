@@ -18,7 +18,7 @@
 #define G4 392.0
 #define Gs4 415.3
 
-const int speakerPin = 9;
+const uint8_t speakerPin = 9;
 enum WaveType { SQUARE, SINUSOID, PHASOR, ORGAN };
 
 // 32-sample Sine Wave for the Sinusoid option
@@ -30,6 +30,11 @@ const uint8_t sineTable[] PROGMEM = {
 const uint8_t organTable[] PROGMEM = {
   127, 180, 210, 215, 200, 185, 180, 190, 200, 205, 190, 160, 127, 94, 64, 49, 
   54, 64, 74, 69, 54, 39, 44, 74, 127
+};
+
+const uint8_t whistleTable[] PROGMEM = {
+  127, 151, 175, 197, 216, 232, 244, 251, 254, 251, 244, 232, 216, 197, 175, 151, 
+  127, 102, 78, 56, 37, 21, 9, 2, 0, 2, 9, 21, 37, 56, 78, 102
 };
 
 void initAudio() {
