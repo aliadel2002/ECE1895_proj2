@@ -162,9 +162,15 @@ void loop()
       if (now - roundStartTime >= waitDuration) {
         currentCommand = nextCommand();
         state = ACTIVE;
+        // =========================
+        // PLAY SOUND
+        // =========================
       }
       break;
 
+    // =========================
+    // after score++ add to 7 seg for p1 or p2
+    // =========================
     case ACTIVE:
       if (g1 && strcmp(g1, currentCommand) == 0) {
         score1++;
