@@ -19,7 +19,7 @@
 #define Gs4 415.3
 
 const uint8_t speakerPin = 9;
-enum WaveType { SQUARE, SINUSOID, PHASOR, ORGAN };
+enum WaveType { SQUARE, SINUSOID, PHASOR, ORGAN, WHISTLE };
 
 // 32-sample Sine Wave for the Sinusoid option
 const uint8_t sineTable[] PROGMEM = {
@@ -63,6 +63,9 @@ void play_note(double frequency, int length, WaveType wave) {
       }
       else if (wave == ORGAN) {
         OCR1A = pgm_read_byte(&organTable[i]);
+      }
+      else if (wave == WHISTLE) {
+        OCR1A = pgm_read_byte(&whistleTable[i]);
       }
       delayMicroseconds(step_delay);
     }
