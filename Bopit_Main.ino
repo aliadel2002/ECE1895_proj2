@@ -1,7 +1,7 @@
 #include <Adafruit_LSM6DS3TRC.h>
 #include <Wire.h>
-#include <audio_engine.h>
-#include <display_shift.h>
+#include "audio_engine.h"
+#include "display_shift.h"
 #include <U8g2lib.h>
 
 // Set Pins (Add pins for score and sound board)
@@ -20,9 +20,9 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
 // Thresholds
 constexpr float TILT_Z_THRESHOLD   = -5.0f;
-constexpr float TWIST_GZ_THRESHOLD =  1.5f;
+constexpr float TWIST_GZ_THRESHOLD =  1.6f;
 constexpr float PUNCH_AX_THRESHOLD =  2.0f;
-constexpr float SHAKE_AZ_THRESHOLD =  1.25f;
+constexpr float SHAKE_AZ_THRESHOLD =  1.85f;
 
 constexpr unsigned long COOLDOWN_MS = 400;
 
@@ -149,6 +149,7 @@ void setup()
 
   initAudio();
   initDisplay();
+  displayNumbers(0,0);
 }
 
 void loop()
@@ -167,16 +168,11 @@ void loop()
       if (now - roundStartTime >= waitDuration) {
         currentCommand = nextCommand();
         state = ACTIVE;
-        // =========================
-        // PLAY SOUND
-        // =========================
-        playNote(2*C4,4,PHASOR)
+        play_note(2*C4,4,PHASOR);
       }
       break;
 
-    // =========================
-    // after score++ add to 7 seg for p1 or p2
-    // =========================
+   
     case ACTIVE:
       if (g1 && strcmp(g1, currentCommand) == 0) {
         score1++;
